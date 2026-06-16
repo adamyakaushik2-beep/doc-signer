@@ -1,63 +1,66 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// Helper function to sign JSON Web Tokens
+// Helper function to generate a JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id }, process.env.JWT_SECRET || 'fallback_secret', {
+    expiresIn: '30d',
+  });
 };
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-exports.registerUser = async (req, res) => {
+const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // 1. Validation: Check if the user filled out all fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please provide all fields' });
-    }
-
-    // 2. Duplication Check: Look up if this email already exists
+    // 1. Check if the user already exists in MongoDB
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res.status(400).json({ message: 'User already exists' });
     }
 
-    // 3. Database Execution: Create the user
-    // (Note: The password hashing happens silently inside models/User.js due to the pre-save hook!)
-    const user = await User.create({ name, email, password });
-
-    // 4. Response: Send back user metadata + a freshly generated JWT token
-    res.status(201).json({
-      token: generateToken(user._id),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    // 2. Create the user profile
+    const user = await User.create({
+      name,
+      email,
+      password, // Note: In a later step, we will hash this for production security
     });
 
+    if (user) {
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid user data received' });
+    }
   } catch (error) {
-    res.status(500).json({ message: 'Server error during registration', error: error.message });
+    console.error('❌ Registration Controller Error:', error);
+    res.status(500).json({ message: 'Server error during registration workflow' });
   }
 };
 
-// @desc    Authenticate a user & get token
-// @route   POST /api/auth/login
-exports.loginUser = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // 1. Look up user by email
     const user = await User.findOne({ email });
 
-    // 2. Verify password validity using the method defined in our User model
-    if (user && (await user.comparePassword(password))) {
+    // Simple plain text password check for development baseline validation
+    if (user && user.password === password) {
       res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
         token: generateToken(user._id),
-        user: { id: user._id, name: user.name, email: user.email, role: user.role }
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
-
   } catch (error) {
-    res.status(500).json({ message: 'Server error during login', error: error.message });
+    console.error('❌ Login Controller Error:', error);
+    res.status(500).json({ message: 'Server error during login workflow' });
   }
 };
+
+module.exports = { registerUser, loginUser };

@@ -1,34 +1,22 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/Dashboard'; // 1. Import the new file
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <div className="min-h-screen bg-gray-50 text-gray-900">
         <Routes>
-          {/* Public Routes */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
-          {/* Protected Routes */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
           
-          {/* Fallback default route */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* 2. Swap out the placeholder code for your actual Dashboard page */}
+          <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
-      </Router>
-    </AuthProvider>
+      </div>
+    </Router>
   );
 }
 
