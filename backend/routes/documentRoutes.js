@@ -1,49 +1,51 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
 const Document = require('../models/Document');
+const { protect } = require('../middleware/authMiddleware'); // 1. Import protection middleware
 
-// 1. Configure how Multer stores uploaded files
+// Configure Multer Storage Engine
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Saves files into your backend/uploads/ folder
-  },
-  filename: (req, file, cb) => {
-    // Generates a unique name: timestamp-originalfilename.pdf
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 
-// 2. File filter to ensure ONLY PDFs are accepted
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only PDF documents are allowed!'), false);
-  }
+  if (file.mimetype === 'application/pdf') cb(null, true);
+  else cb(new Error('Only PDF documents are allowed!'), false);
 };
 
 const upload = multer({ storage, fileFilter });
 
-// 3. The Upload Endpoint (Temporary placeholder for uploadedBy ID for testing)
-router.post('/upload', upload.single('pdf'), async (req, res) => {
+// 2. Add the 'protect' middleware right before your upload function handler
+router.post('/upload', protect, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded or file format invalid' });
+      return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Create a new database record for the file
+    // 3. Extract the real User ID injected by our middleware
     const newDoc = await Document.create({
       title: req.body.title || req.file.originalname,
       filePath: req.file.path,
-      uploadedBy: req.body.userId // We will link this automatically using auth middleware tomorrow
+      uploadedBy: req.user._id // No more hardcoding!
     });
 
     res.status(201).json({ message: 'Document uploaded successfully!', document: newDoc });
   } catch (error) {
-    console.error('❌ Upload Route Error:', error);
-    res.status(500).json({ message: 'Server error during file upload' });
+    console.error('❌ Secure Upload Route Error:', error);
+    res.status(500).json({ message: 'Server error during secure file upload' });
+  }
+});
+
+// 4. NEW ENDPOINT: Fetch all documents belonging to the authenticated user
+router.get('/my-docs', protect, async (req, res) => {
+  try {
+    const docs = await Document.find({ uploadedBy: req.user._id }).sort({ createdAt: -1 });
+    res.json(docs);
+  } catch (error) {
+    console.error('❌ Fetch Documents Error:', error);
+    res.status(500).json({ message: 'Failed to retrieve user documents' });
   }
 });
 
