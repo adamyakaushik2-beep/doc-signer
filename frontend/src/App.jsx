@@ -1,7 +1,19 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard'; // 1. Import the new file
+import Dashboard from './pages/Dashboard';
+
+// ✅ Task 3 Route Guard High-Order Component
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  
+  // If no security token is found in browser memory, redirect immediately to login
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
 
 function App() {
   return (
@@ -12,8 +24,15 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           
-          {/* 2. Swap out the placeholder code for your actual Dashboard page */}
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* ✅ Secured Endpoint using the ProtectedRoute component wrap */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </div>
     </Router>
